@@ -30,12 +30,9 @@ import remarkGfm from 'remark-gfm'
 import Groq from "groq-sdk";
 
 const App: () => JSX.Element = () => {
-    const [caption, setCaption] = useState<string | undefined>(
-        "Powered by Deepgram and Groq"
-    );
+    const [caption, setCaption] = useState<string | undefined>("Powered by Deepgram and Groq");
     const { connection, connectToDeepgram, connectionState } = useDeepgram();
-    const { setupMicrophone, microphone, startMicrophone, stopMicrophone, microphoneState, microphones, device, setDevice } =
-        useMicrophone();
+    const { setupMicrophone, microphone, startMicrophone, stopMicrophone, microphoneState, microphones, device, setDevice } = useMicrophone();
     const captionTimeout = useRef<any>();
     const keepAliveInterval = useRef<any>();
     const [isMicrophoneReady, setIsMicrophoneReady] = useState<boolean>(false);
@@ -101,29 +98,29 @@ const App: () => JSX.Element = () => {
             //   // utterance_end_ms: 5000,
             // });
 
+            // const options: LiveSchema = {
+            //     model: "nova-2",
+            //     interim_results: false,
+            //     language: "en-US",
+            //     smart_format: true,
+            // };
+
             const options: LiveSchema = {
                 model: "nova-2",
-                interim_results: false,
                 language: "en-US",
+                // Apply smart formatting to the output
                 smart_format: true,
+                // Raw audio format details
+                encoding: "linear16",
+                channels: 1,
+                sample_rate: 16000,
+                // To get UtteranceEnd, the following must be set:
+                interim_results: false,
+                utterance_end_ms: 1000,
+                vad_events: true,
+                // Time in milliseconds of silence to wait for before finalizing speech
+                endpointing: 300,
             };
-
-            // const options: LiveSchema = {
-            //       model: "nova-2",
-            //       language: "en-US",
-            //       // Apply smart formatting to the output
-            //       smart_format: true,
-            //       // Raw audio format details
-            //       encoding: "linear16",
-            //       channels: 1,
-            //       sample_rate: 16000,
-            //       // To get UtteranceEnd, the following must be set:
-            //       interim_results: true,
-            //       utterance_end_ms: 1000,
-            //       vad_events: true,
-            //       // Time in milliseconds of silence to wait for before finalizing speech
-            //       endpointing: 300,
-            // };
 
             connectToDeepgram(options);
         }
@@ -229,7 +226,7 @@ const App: () => JSX.Element = () => {
                                     <Button>{device.label}</Button>
                                 </MenuHandler>
                                 <MenuList>
-                                    {microphones.map((microphone) => (<MenuItem key={microphone.deviceId} onClick={(event) => { console.log("selected microphone=", microphone); setDevice(microphone); console.log('device=', device) }}>{microphone.label}</MenuItem>))}
+                                    {microphones.map((microphone: MediaDeviceInfo) => (<MenuItem key={microphone.deviceId} onClick={(event) => { console.log("selected microphone=", microphone); setDevice(microphone); console.log('device=', device) }}>{microphone.label}</MenuItem>))}
                                 </MenuList>
                             </Menu>
                         }

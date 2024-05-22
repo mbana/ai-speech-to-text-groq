@@ -41,7 +41,7 @@ const Visualizer = ({ microphone }: { microphone: MediaRecorder | null }) => {
     // canvas.style.width = "100%";
     // canvas.style.height = "100%";
     canvas.style.width = "100%";
-    canvas.style.height = "8%";
+    canvas.style.height = "16%";
     canvas.width = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
 
@@ -60,7 +60,7 @@ const Visualizer = ({ microphone }: { microphone: MediaRecorder | null }) => {
     context.clearRect(0, 0, width, height);
 
     // const barWidth = 10;
-    const barWidth = 32;
+    const barWidth = 8;
     let x = 0;
     // const startColor = [19, 239, 147];
     // const endColor = [20, 154, 251];
@@ -75,13 +75,13 @@ const Visualizer = ({ microphone }: { microphone: MediaRecorder | null }) => {
       const color = interpolateColor(startColor, endColor, interpolationFactor);
 
       // context.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.1)`;
-      context.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.64)`;
+      context.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, 1)`;
       context.fillRect(x, height - barHeight, barWidth, barHeight);
       x += barWidth;
     }
   };
 
-  return <canvas ref={canvasRef} width={window.innerWidth}></canvas>;
+  return <canvas ref={canvasRef} width={window.innerWidth} className="visualizer"></canvas>;
 };
 
 export default Visualizer;

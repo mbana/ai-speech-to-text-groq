@@ -7,7 +7,8 @@
  */
 :root {
   background: #0b0b0c;
-  font-size: 16px;
+  /* font-size: 16px; */
+  font-size: 14px;
   color-scheme: dark;
 }
 
@@ -31,7 +32,6 @@ body {
 }
 
 @layer utilities {
-
   .gradient-shadow {
     box-shadow:
       -1rem 0px 2rem 0px #13ef9335,
@@ -47,4 +47,11 @@ body {
 
 .response {
   font-family: 'Courier New', Courier, monospace;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.87);
+}
+
+.visualizer {
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.87);
 }

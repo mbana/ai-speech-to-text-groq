@@ -2,9 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  LiveConnectionState,
-  LiveTranscriptionEvent,
-  LiveTranscriptionEvents,
   useDeepgram,
 } from "../context/DeepgramContextProvider";
 import {
@@ -14,23 +11,29 @@ import {
 } from "../context/MicrophoneContextProvider";
 import Visualizer from "./Visualizer";
 
-import Markdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import {
+  Menu,
+  MenuHandler,
+  MenuList,
+  MenuItem,
+  Button,
+} from "@material-tailwind/react";
+
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
 import Groq from "groq-sdk";
 
 const App: () => JSX.Element = () => {
-  const [caption, setCaption] = useState<string | undefined>(
-    "Powered by Deepgram"
-  );
-  const { connection, connectToDeepgram, connectionState } = useDeepgram();
-  const { setupMicrophone, microphone, startMicrophone, stopMicrophone, microphoneState } =
-    useMicrophone();
+  const [caption, setCaption] = useState<string | undefined>("Powered by Deepgram and Groq");
+  const { connection, connectionState } = useDeepgram();
+  const { setupMicrophone, microphone, startMicrophone, stopMicrophone, microphoneState, mimeType, onMicrophoneData, microphoneData, setMicrophoneData } = useMicrophone();
   const captionTimeout = useRef<any>();
-  const keepAliveInterval = useRef<any>();
   const [isMicrophoneReady, setIsMicrophoneReady] = useState<boolean>(false);
   const [groqResponse, setGroqResponse] = useState<string>();
+  const [error, setError] = useState<Error | null>(null);
 
-  const queryGroq = async (text: string) => {
+  const queryGroq = async (content: string) => {
     const response = await fetch("/api/groq", { cache: "no-store" });
     const { apiKey } = await response.json();
 
@@ -39,7 +42,6 @@ const App: () => JSX.Element = () => {
       dangerouslyAllowBrowser: true,
     });
 
-
     let stack = [
       {
         'role': 'system',
@@ -47,17 +49,17 @@ const App: () => JSX.Element = () => {
       },
       {
         role: 'user',
-        content: text,
+        content: content,
       }
     ];
 
     const completions = await groq.chat.completions.create({
       messages: stack,
       model: "llama3-70b-8192",
-      stream: false
+      stream: false,
     });
 
-    console.log("query_groq: response=", response);
+    // console.log("queryGroq: completions=", completions);
     return completions.choices[0].message.content;
   };
 
@@ -67,26 +69,11 @@ const App: () => JSX.Element = () => {
     } else {
       setIsMicrophoneReady(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [microphoneState]);
 
   useEffect(() => {
     setupMicrophone();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (microphoneState === MicrophoneState.Ready) {
-      connectToDeepgram({
-        model: "nova-2",
-        interim_results: true,
-        smart_format: true,
-        filler_words: true,
-        utterance_end_ms: 3000,
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [microphoneState]);
 
   const [disableStartRecordingButton, setDisableStartRecordingButton] = useState<boolean>(true);
   useEffect(() => {
@@ -107,70 +94,55 @@ const App: () => JSX.Element = () => {
   }, [microphoneState]);
 
   useEffect(() => {
-    if (!microphone) return;
-    if (!connection) return;
-
-    const onData = (e: BlobEvent) => {
-      connection?.send(e.data);
-    };
-
-    const onTranscript = async (data: LiveTranscriptionEvent) => {
-      const { is_final: isFinal, speech_final: speechFinal } = data;
-      let thisCaption = data.channel.alternatives[0].transcript;
-
-      console.log("thisCaption", thisCaption);
-      if (thisCaption !== "") {
-        console.log('thisCaption !== ""', thisCaption);
-        setGroqResponse(await queryGroq(thisCaption));
-        setCaption(thisCaption);
-      }
-
-      if (isFinal && speechFinal) {
-        clearTimeout(captionTimeout.current);
-        captionTimeout.current = setTimeout(() => {
-          setCaption(undefined);
-          clearTimeout(captionTimeout.current);
-        }, 3000);
-      }
-    };
-
-    if (connectionState === LiveConnectionState.OPEN) {
-      connection.addListener(LiveTranscriptionEvents.Transcript, onTranscript);
-      microphone.addEventListener(MicrophoneEvents.DataAvailable, onData);
-
-      startMicrophone();
+    if (!microphone) {
+      return;
     }
 
+    const onData = (event: BlobEvent) => {
+      onMicrophoneData(event);
+    };
+
+    microphone.addEventListener(MicrophoneEvents.DataAvailable, onData);
+    startMicrophone();
+
     return () => {
-      // prettier-ignore
-      connection.removeListener(LiveTranscriptionEvents.Transcript, onTranscript);
       microphone.removeEventListener(MicrophoneEvents.DataAvailable, onData);
       clearTimeout(captionTimeout.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connectionState]);
+  }, [microphone, connection, connectionState]);
 
-  useEffect(() => {
-    if (!connection) return;
+  const stopRecording = async () => {
+    microphone?.requestData();
+    microphone?.stream.getTracks().forEach((track) => { track.stop(); });
+    stopMicrophone();
+    console.log('microphoneData=', microphoneData);
+    const blobParts = microphoneData.reduce((a, b) => new Blob([a, b], { type: mimeType ?? "audio/webm" }));
+    const blobs = new Blob([blobParts], { type: mimeType ?? "audio/webm" });
 
-    if (
-      microphoneState !== MicrophoneState.Open &&
-      connectionState === LiveConnectionState.OPEN
-    ) {
-      connection.keepAlive();
-
-      keepAliveInterval.current = setInterval(() => {
-        connection.keepAlive();
-      }, 10000);
-    } else {
-      clearInterval(keepAliveInterval.current);
-    }
-
-    return () => {
-      clearInterval(keepAliveInterval.current);
+    const options = {
+      method: 'POST',
+      url: '/api/deepgram',
+      headers: {
+        'Accept': 'application/json',
+        cache: "no-store",
+      },
+      body: blobs,
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [microphoneState, connectionState]);
+    const response = await fetch("/api/deepgram", options);
+    const json = await response.json();
+
+    const transcript = json.result.results.channels[0].alternatives[0].transcript;
+    const groqResponse = await queryGroq(transcript);
+    setGroqResponse(groqResponse);
+    console.log(groqResponse);
+
+    setMicrophoneData([]);
+  };
+
+  const startRecording = async () => {
+    await setupMicrophone();
+    startMicrophone();
+  };
 
   return (
     <>
@@ -178,11 +150,10 @@ const App: () => JSX.Element = () => {
         <div className="flex flex-row h-full w-full overflow-x-hidden">
           <div className="flex flex-col flex-auto h-full">
             {/* height 100% minus 8rem */}
-            <button onClick={startMicrophone} disabled={disableStartRecordingButton}>Start Recording</button>
-            <button onClick={stopMicrophone} disabled={disableStopRecordingButton}>Stop Recording</button>
+            <Button color="green" onClick={startRecording} disabled={disableStartRecordingButton}>Start Recording</Button>
+            <Button color="red" onClick={stopRecording} disabled={disableStopRecordingButton}>Stop Recording</Button>
             <div><b>microphoneState: </b>{microphoneState}</div>
             <div className="relative w-full h-full">
-              {/* {microphone && <Visualizer microphone={microphone} />} */}
               {isMicrophoneReady && <Visualizer microphone={microphone} />}
               {<Markdown remarkPlugins={[remarkGfm]} className="response">{groqResponse}</Markdown>}
               <div className="absolute bottom-[8rem]  inset-x-0 max-w-4xl mx-auto text-center">

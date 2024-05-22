@@ -137,8 +137,8 @@ const MicrophoneContextProvider: React.FC<MicrophoneContextProviderProps> = ({
             microphone.resume();
         } else {
             // microphone?.start(250);
-            microphone?.start(3000);
-            // microphone?.start();
+            // microphone?.start(3000);
+            microphone?.start();
         }
 
         setMicrophoneState(MicrophoneState.Open);
