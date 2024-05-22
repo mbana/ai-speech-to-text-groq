@@ -44,3 +44,7 @@ body {
   padding-top: 0.125rem;
   padding-bottom: 0.125rem;
 }
+
+.response {
+  font-family: 'Courier New', Courier, monospace;
+}

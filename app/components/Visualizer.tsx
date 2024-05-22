@@ -33,8 +33,10 @@ const Visualizer = ({ microphone }: { microphone: MediaRecorder }) => {
 
     if (!canvas) return;
 
+    // canvas.style.width = "100%";
+    // canvas.style.height = "100%";
     canvas.style.width = "100%";
-    canvas.style.height = "100%";
+    canvas.style.height = "16%";
     canvas.width = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
 

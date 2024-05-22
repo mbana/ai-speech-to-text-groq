@@ -55,7 +55,7 @@ For `DEEPGRAM_API_KEY` paste in the key you generated in the [Deepgram console](
 Once running, you can [access the application in your browser](http://localhost:3000).
 
 ```bash
-npm run dev
+source .env && npm run dev
 ```
 
 ## Getting Help
