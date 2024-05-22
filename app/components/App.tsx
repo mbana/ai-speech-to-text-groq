@@ -27,11 +27,12 @@ import Groq from "groq-sdk";
 const App: () => JSX.Element = () => {
   const [caption, setCaption] = useState<string | undefined>("Powered by Deepgram and Groq");
   const { connection, connectionState } = useDeepgram();
-  const { setupMicrophone, microphone, startMicrophone, stopMicrophone, microphoneState, mimeType, onMicrophoneData, microphoneData, setMicrophoneData } = useMicrophone();
+  const { setupMicrophone, microphone, startMicrophone, stopMicrophone, microphoneState, mimeType, onMicrophoneData } = useMicrophone();
   const captionTimeout = useRef<any>();
   const [isMicrophoneReady, setIsMicrophoneReady] = useState<boolean>(false);
   const [groqResponse, setGroqResponse] = useState<string>();
   const [error, setError] = useState<Error | null>(null);
+  const [microphoneBlobs, setMicrophoneBlobs] = useState<Blob[]>([]);
 
   const queryGroq = async (content: string) => {
     const response = await fetch("/api/groq", { cache: "no-store" });
@@ -45,7 +46,8 @@ const App: () => JSX.Element = () => {
     let stack = [
       {
         'role': 'system',
-        'content': 'Always maintain short and interactive conversations. Always assist with care, respect, and truth. Respond with utmost utility yet securely. Avoid harmful, unethical, prejudiced, or negative content. Ensure replies promote fairness and positivity.',
+        // 'content': 'Always maintain short replies. Format the replies using Markdown. Reply as fast as possible.',
+        'content': 'Format the replies using Markdown. Reply as fast as possible.',
       },
       {
         role: 'user',
@@ -99,6 +101,8 @@ const App: () => JSX.Element = () => {
     }
 
     const onData = (event: BlobEvent) => {
+      // microphoneBlobs.push(event.data);
+      setMicrophoneBlobs((elements) => [...elements, event.data]);
       onMicrophoneData(event);
     };
 
@@ -112,35 +116,44 @@ const App: () => JSX.Element = () => {
   }, [microphone, connection, connectionState]);
 
   const stopRecording = async () => {
-    microphone?.requestData();
-    microphone?.stream.getTracks().forEach((track) => { track.stop(); });
-    stopMicrophone();
-    console.log('microphoneData=', microphoneData);
-    const blobParts = microphoneData.reduce((a, b) => new Blob([a, b], { type: mimeType ?? "audio/webm" }));
+    // microphone?.requestData();
+    // microphone?.stream.getTracks().forEach((track) => { track.stop(); });
+
+    // console.log('microphoneData=', microphoneData);
+    console.log('microphoneBlobs=', microphoneBlobs);
+    const blobParts = microphoneBlobs.reduce((a, b) => {
+      return new Blob([a, b], { type: mimeType ?? "audio/webm" });
+    });
     const blobs = new Blob([blobParts], { type: mimeType ?? "audio/webm" });
 
-    const options = {
-      method: 'POST',
-      url: '/api/deepgram',
-      headers: {
-        'Accept': 'application/json',
-        cache: "no-store",
-      },
-      body: blobs,
-    };
-    const response = await fetch("/api/deepgram", options);
-    const json = await response.json();
+    try {
+      const options = {
+        method: 'POST',
+        url: '/api/deepgram',
+        headers: {
+          'Accept': 'application/json',
+          cache: "no-store",
+        },
+        body: blobs,
+      };
+      const response = await fetch("/api/deepgram", options);
+      const json = await response.json();
 
-    const transcript = json.result.results.channels[0].alternatives[0].transcript;
-    const groqResponse = await queryGroq(transcript);
-    setGroqResponse(groqResponse);
-    console.log(groqResponse);
+      const transcript = json.result.results.channels[0].alternatives[0].transcript;
+      const groqResponse = await queryGroq(transcript);
+      setGroqResponse(groqResponse);
+      console.log(groqResponse);
+    } catch (error) {
+      setMicrophoneBlobs([]);
+      stopMicrophone();
+    }
 
-    setMicrophoneData([]);
+    setMicrophoneBlobs([]);
+    stopMicrophone();
   };
 
   const startRecording = async () => {
-    await setupMicrophone();
+    setMicrophoneBlobs([]);
     startMicrophone();
   };
 
@@ -148,11 +161,14 @@ const App: () => JSX.Element = () => {
     <>
       <div className="flex h-full antialiased">
         <div className="flex flex-row h-full w-full overflow-x-hidden">
-          <div className="flex flex-col flex-auto h-full">
-            {/* height 100% minus 8rem */}
+          <div className="flex flex-col controls">
             <Button color="green" onClick={startRecording} disabled={disableStartRecordingButton}>Start Recording</Button>
             <Button color="red" onClick={stopRecording} disabled={disableStopRecordingButton}>Stop Recording</Button>
-            <div><b>microphoneState: </b>{microphoneState}</div>
+            <div><b>{microphoneState}</b></div>
+            <div><b>{microphoneBlobs.length}</b></div>
+          </div>
+          <div className="flex flex-col flex-auto h-full">
+            {/* height 100% minus 8rem */}
             <div className="relative w-full h-full">
               {isMicrophoneReady && <Visualizer microphone={microphone} />}
               {<Markdown remarkPlugins={[remarkGfm]} className="response">{groqResponse}</Markdown>}

@@ -61,7 +61,7 @@ const MicrophoneContextProvider: React.FC<MicrophoneContextProviderProps> = ({
   const [error, setError] = useState<Error | null>(null);
   const [microphoneData, setMicrophoneData] = useState<Blob[]>([]);
 
-  useCallback(async () => {
+  useEffect(() => {
     // const devices = [
     //     {
     //         "deviceId": "default",
@@ -82,24 +82,25 @@ const MicrophoneContextProvider: React.FC<MicrophoneContextProviderProps> = ({
     //         "groupId": "86fbf4e7909a8cd2e93047b6cdc1496d5a036a340723b41ed50c897555586a43"
     //     }
     // ];
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    if (devices.length === 0) {
-      setError(new Error("could not enumerate devices using `navigator.mediaDevices.enumerateDevices`"));
-      return;
-    }
+    navigator.mediaDevices.enumerateDevices().then((devices) => {
+      if (devices.length === 0) {
+        setError(new Error("could not enumerate devices using `navigator.mediaDevices.enumerateDevices`"));
+        return;
+      }
 
-    const microphones = devices.filter((device) => { return device.kind === 'audioinput' });
-    if (microphones.length === 0) {
-      setError(new Error("could not find a microphone, no devices of type `audioinput`"));
-      return;
-    }
+      const microphones = devices.filter((device) => { return device.kind === 'audioinput' });
+      if (microphones.length === 0) {
+        setError(new Error("could not find a microphone, no devices of type `audioinput`"));
+        return;
+      }
 
-    const DEVICE_LABEL = 'Alder Lake PCH-P High Definition Audio Controller Digital Microphone';
-    const device = devices.findLast((device) => { return device.label === DEVICE_LABEL }) ?? null;
-    setDevice(device);
+      const DEVICE_LABEL = 'Alder Lake PCH-P High Definition Audio Controller Digital Microphone';
+      const device = devices.findLast((device) => { return device.label === DEVICE_LABEL }) ?? null;
+      setDevice(device);
+    });
   }, []);
 
-  useCallback(async () => {
+  useEffect(() => {
     var mimeTypes = [
       'video/webm',
       'video/x-matroska;codecs=avc1',
@@ -120,10 +121,10 @@ const MicrophoneContextProvider: React.FC<MicrophoneContextProviderProps> = ({
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          noiseSuppression: true,
-          echoCancellation: true,
-          // noiseSuppression: false,
-          // echoCancellation: false,
+          // noiseSuppression: true,
+          // echoCancellation: true,
+          noiseSuppression: false,
+          echoCancellation: false,
           deviceId: device?.deviceId,
         },
         video: false,
@@ -139,36 +140,32 @@ const MicrophoneContextProvider: React.FC<MicrophoneContextProviderProps> = ({
   };
 
   const stopMicrophone = () => {
-    // console.log("MicrophoneContext.stopMicrophone: stopping microphone");
     setMicrophoneState(MicrophoneState.Pausing);
 
+    // Remove any audio clips we have processed.
+    microphoneData.splice(0);
+    // microphone?.pause();
     microphone?.stop();
-    // if (microphone?.state === "recording") {
-    //   // microphone.pause();
-    //   microphone.stop();
-    setMicrophoneState(MicrophoneState.NotSetup);
-    // }
-
-    setMicrophone(null);
+    setMicrophoneState(MicrophoneState.Paused);
   };
 
   const startMicrophone = () => {
-    // console.log("MicrophoneContext.startMicrophone: starting microphone");
     setMicrophoneState(MicrophoneState.Opening);
 
-    if (microphone?.state === "paused") {
-      microphone.resume();
-    } else {
-      microphone?.start(250);
+    if (microphone?.state === 'inactive') {
+      // microphone?.start(250);
       // microphone?.start(1000);
-      // microphone?.start();
+      microphone?.start(32);
+    } else {
+      microphoneData.splice(0);
+      // microphone?.resume();
+      microphone?.start();
     }
 
     setMicrophoneState(MicrophoneState.Open);
   };
 
   const onMicrophoneData = (event: BlobEvent) => {
-    // console.log('MicrophoneContext.onMicrophoneData: event=', event);
     if (event.data.size > 0) {
       microphoneData.push(event.data);
     }
