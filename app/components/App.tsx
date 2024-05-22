@@ -31,10 +31,14 @@ const App: () => JSX.Element = () => {
   const [groqResponse, setGroqResponse] = useState<string>();
 
   const queryGroq = async (text: string) => {
+    const response = await fetch("/api/groq", { cache: "no-store" });
+    const { apiKey } = await response.json();
+
     const groq = new Groq({
-      apiKey: process.env.GROQ_API_KEY,
+      apiKey: apiKey,
       dangerouslyAllowBrowser: true,
     });
+
 
     let stack = [
       {
@@ -47,14 +51,14 @@ const App: () => JSX.Element = () => {
       }
     ];
 
-    const response = await groq.chat.completions.create({
+    const completions = await groq.chat.completions.create({
       messages: stack,
       model: "llama3-70b-8192",
       stream: false
     });
 
     console.log("query_groq: response=", response);
-    return response.choices[0].message.content;
+    return completions.choices[0].message.content;
   };
 
   useEffect(() => {

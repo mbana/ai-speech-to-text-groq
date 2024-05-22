@@ -33,9 +33,9 @@ interface DeepgramContextProviderProps {
 }
 
 const getApiKey = async (): Promise<string> => {
-  const response = await fetch("/api/authenticate", { cache: "no-store" });
-  const result = await response.json();
-  return result.key;
+  const response = await fetch("/api/deepgram", { cache: "no-store" });
+  const { key } = await response.json();
+  return key;
 };
 
 const DeepgramContextProvider: FunctionComponent<
@@ -54,8 +54,8 @@ const DeepgramContextProvider: FunctionComponent<
    * @returns A Promise that resolves when the connection is established.
    */
   const connectToDeepgram = async (options: LiveSchema, endpoint?: string) => {
-    const key = await getApiKey();
-    const deepgram = createClient(key);
+    const apiKey = await getApiKey();
+    const deepgram = createClient(apiKey);
 
     const conn = deepgram.listen.live(options, endpoint);
 

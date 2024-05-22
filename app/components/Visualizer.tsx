@@ -14,29 +14,34 @@ const interpolateColor = (
   return result;
 };
 
-const Visualizer = ({ microphone }: { microphone: MediaRecorder }) => {
+const Visualizer = ({ microphone }: { microphone: MediaRecorder | null }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioContext = new (window.AudioContext || window.webkitAudioContext)();
   const analyser = audioContext.createAnalyser();
   const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
   useEffect(() => {
+    if (!microphone) {
+      return;
+    }
+
     const source = audioContext.createMediaStreamSource(microphone.stream);
     source.connect(analyser);
 
     draw();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const draw = (): void => {
     const canvas = canvasRef.current;
 
-    if (!canvas) return;
+    if (!canvas) {
+      return;
+    }
 
     // canvas.style.width = "100%";
     // canvas.style.height = "100%";
     canvas.style.width = "100%";
-    canvas.style.height = "16%";
+    canvas.style.height = "8%";
     canvas.width = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
 
@@ -48,14 +53,19 @@ const Visualizer = ({ microphone }: { microphone: MediaRecorder }) => {
 
     analyser.getByteFrequencyData(dataArray);
 
-    if (!context) return;
+    if (!context) {
+      return;
+    }
 
     context.clearRect(0, 0, width, height);
 
-    const barWidth = 10;
+    // const barWidth = 10;
+    const barWidth = 32;
     let x = 0;
-    const startColor = [19, 239, 147];
-    const endColor = [20, 154, 251];
+    // const startColor = [19, 239, 147];
+    // const endColor = [20, 154, 251];
+    const startColor = [255, 0, 0];
+    const endColor = [255, 255, 255];
 
     for (const value of dataArray) {
       const barHeight = (value / 255) * height * 2;
@@ -64,7 +74,8 @@ const Visualizer = ({ microphone }: { microphone: MediaRecorder }) => {
 
       const color = interpolateColor(startColor, endColor, interpolationFactor);
 
-      context.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.1)`;
+      // context.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.1)`;
+      context.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.64)`;
       context.fillRect(x, height - barHeight, barWidth, barHeight);
       x += barWidth;
     }
